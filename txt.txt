@@ -1,0 +1,551 @@
+Controlador de la tabla-PetController.php
+
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\Pet;
+use App\Models\Owner;
+
+class PetController extends Controller
+{
+ 
+    public function index()
+    {
+        //
+        $pets= Pet::paginate();
+        return view('pet.index', compact('pets'))
+        ->with('i', (request()->input('page', 1)-1)*$pets->perPage());
+
+    }
+
+
+    public function create()
+    {
+        //
+        $owners = Owner::all();
+        return view('pet.create', compact('owners' ));
+    }
+
+
+    public function store(Request $request)
+    {
+        //validacion de datos
+        request()->validate(Pet::$rules);
+
+        //recepcionar todos los datos
+        $petData = request()->except("_token");
+        Pet::insert($petData);
+        return redirect()->route('pet.index');
+    }
+
+    public function show(string $id)
+    {
+        //va a mostrar informacion especifica
+        //vamos a compartir datos desde el controlaor hasta nuestra vista
+        $pet= Pet::find($id);
+        return view('pet.show', compact('pet'));
+    }
+
+
+    public function edit(string $id)
+    {
+        //recuperar los datos
+        $pet=Pet::findOrFail($id);
+        $owners=Owner::all();
+        return view('pet.edit', compact('pet','owners'));
+    }
+
+
+    public function update(Request $request, string $id)
+    {
+        //
+        $petData=request()->except(['_token', '_method']);
+        Pet::where('id', '=', $id)->update($petData);
+        return redirect('pet');
+    }
+
+
+    public function destroy(string $id)
+    {
+        //
+        Pet::destroy($id);
+        return redirect('pet');
+    }
+}
+
+----------------------------------------------------------------------------------------
+
+Model-Pet.php
+
+
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Pet extends Model
+{
+    use HasFactory;
+
+    //Elemtos para validar
+    static $rules=[
+        'name'=>'required|string|min:3',
+        'age'=>'required|integer|min:1',
+        'weight_kg'=>'required|integer|min:1',
+        'owner_id' =>'required|min:1',
+
+    ];
+    protected $perPage=5;
+
+    /*registro de que existe una relacion en laravel. Se registra en el archivo que
+    representa la tabla */
+    public function owner(){
+        return $this->belongsTo(Owner::class);
+    }
+}
+
+----------------------------------------------------------------------------------------
+Migracion para la tabla pet-migrations
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('pets', function (Blueprint $table) {
+            $table->id();            
+            //campos de la tabla
+            $table->string('name');
+            $table->integer('age');
+            $table->decimal('weight_kg');
+
+            $table->timestamps();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('pets');
+    }
+};
+
+----------------------------------------------------------------------------------------
+views-create.blade.php
+Crear registro
+<form action="{{ url('/pet') }}" method="POST">
+    @csrf
+    @include('pet.form')
+</form>
+
+----------------------------------------------------------------------------------------
+views-edit.blade.php
+Editar Registro de Mascota
+
+<form action="{{ url('/pet/'. $pet->id) }}" method="POST">
+    @csrf
+    {{ method_field('PUT') }}
+    @include('pet.form')
+</form>
+
+---------------------------------------------------------------------------------------
+views-form.blade.php
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Document</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-aFq/bzH65dt+w6FI2ooMVUpc+21e0SRygnTpmBvdBgSdnuTN7QbdgL+OapgHtvPp" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
+        <nav class="navbar bg-dark" data-bs-theme="dark">
+
+        <div class="container">
+            <a class="navbar-brand" href="{{URL::to('pet')}}">{{ __('Pets') }}</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasDarkNavbar" aria-controls="offcanvasDarkNavbar" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="offcanvas offcanvas-end text-bg-dark" tabindex="-1" id="offcanvasDarkNavbar" aria-labelledby="offcanvasDarkNavbarLabel">
+            <div class="offcanvas-header">
+                <h5 class="offcanvas-title" id="offcanvasDarkNavbarLabel">Opciones</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body">
+                <ul class="navbar-nav justify-content-end flex-grow-1 pe-3">
+                <li class="nav-item">
+                <a class="btn btn-info" href="{{URL::to('pet')}}">{{ __('Pets') }}</a>
+                </li><br/>
+                <li class="nav-item">
+                <a style="float:justify" href="{{ url('owner/create') }}" class="btn btn-warning">Nuevo Propietario</a>
+                </li>
+
+    
+            </div>
+            </div>
+        </div>
+        </nav>
+        <br/>
+
+    </head>
+    <body>
+    <div class="card abs-center" style="width: 20rem;">
+        <div class="card-header text-center">
+            <h4>Datos mascota</h4>
+        </div>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item">Nombre:
+                <input type="text" name="name" id="name" value="{{ isset($pet)?$pet->name:'' }}" /><br />
+                @error('name')
+                    <div class="error-message">{{$message}}</di><br />
+                @enderror</li>
+            <li class="list-group-item">Edad:
+                <input type="number" name="age" id="age" value="{{ isset($pet)?$pet->age:'' }}" /><br />
+                @error('age')
+                    <div class="error-message">{{$message}}</di><br />
+                @enderror</li>
+            <li class="list-group-item">Peso (kg)
+                <input type="text" name="weight_kg" id="weight_kg" value="{{ isset($pet)?$pet->weight_kg:'' }}"><br />
+                @error('weight_kg')
+                    <div class="error-message">{{$message}}</di><br />
+                @enderror</li>
+            <li class="list-group-item">Seleccione el propietario: <select name="owner_id">
+                <option value=""></option>
+                @foreach($owners as $own)
+                <option value="{{$own->id}}" {{ isset($pet->owner_id) == $own->id ? 'selected' : '' }}>
+                    {{$own->full_name}}
+                </option>
+                @endforeach
+            </select>
+            @error('owner_id')
+                <div class="error-message">{{$message}}</di><br />
+            @enderror</li>
+            
+            <li class="list-group-item text-center"><button class="btn btn-primary" type="submit">Guardar</button></li>
+        </ul>
+        
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha2/dist/js/bootstrap.bundle.min.js" integrity="sha384-qKXV1j0HvMUeCBQ+QVp7JcfGl760yU08IQ+GpUo5hlbpg51QRiuqHAJz8+BrxE/N" crossorigin="anonymous"></script>
+    
+    </body>
+    </html>
+
+    <style>
+        .error-message{
+            color:red
+        }
+        .abs-center {
+        margin: 100px;
+        border: 3px solid #7877e6;
+        background-color: #F0FFFF;
+        position: absolute;
+        top: 5%;
+        left: 30%;}
+
+    </style>
+
+---------------------------------------------------------------------------------------
+views-index.blade.php
+<!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Document</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-aFq/bzH65dt+w6FI2ooMVUpc+21e0SRygnTpmBvdBgSdnuTN7QbdgL+OapgHtvPp" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
+        <nav class="navbar bg-dark" data-bs-theme="dark">
+
+        <div class="container">
+            <a class="navbar-brand" href="{{URL::to('pet')}}">{{ __('Pets') }}</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasDarkNavbar" aria-controls="offcanvasDarkNavbar" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="offcanvas offcanvas-end text-bg-dark" tabindex="-1" id="offcanvasDarkNavbar" aria-labelledby="offcanvasDarkNavbarLabel">
+            <div class="offcanvas-body">
+                <ul class="navbar-nav justify-content-end flex-grow-1 pe-3">
+                <li class="nav-item">
+                    <a class="nav-link active" aria-current="page" href="#">Opciones</a>
+                </li>
+                <div class="offcanvas-body">
+                <ul class="navbar-nav justify-content-end flex-grow-1 pe-3">
+                <li class="nav-item">
+                <a style="float:justify" href="{{ url('owner/create') }}" class="btn btn-info">Nuevo Propietario</a>
+                </li><br/>
+                <li class="nav-item">
+                <a style="float:justify" href="{{ url('pet/create') }}" class="btn btn-warning">Nuevo Registro</a>
+                </li>
+    
+            </div>
+
+            </div>
+            </div>
+        </div>
+        </nav>
+        <br/>
+    </head>
+    
+    <body>
+
+    <div class="container-fluid text-center margin: 100px"  >
+    <div class="p-3 bg-info bg-opacity-10 border border-info border-start-0 rounded-end" >
+        <h3 style="color:#008B8B">Listado de mascotas</h3>
+    </div>
+    <div style="text-align:center;">
+            <table class=" table " style=" border: 3px solid #7877e6; text-align:center"">
+                <thead >
+                <tr class = "mi-clase">
+
+                    <th >#</th>
+                    <th >Nombre</th>
+                    <th></th>
+                    <th >Edad</th>
+                    <th></th>
+                    <th >Peso</th>
+                    <th></th>
+                    <th >Propietario</th>
+
+                    <th><a style="float:justify" href="{{ url('pet/create') }}" class="btn btn-info">Nuevo Registro</a></th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach($pets as $pet)
+                <tr class = "mi-clase">
+                    <td >{{ $pet->id }}</td>
+                    <td >{{ $pet->name }}</td>
+                    <td></td>
+                    <td >{{ $pet->age }}</td>
+                    <td></td>
+                    <td >{{ $pet->weight_kg }}</td>
+                    <td></td>
+                    <td>{{ $pet->owner->full_name }}</td>
+                    
+                    <td class="container-sm text-center" >
+                        <form method="POST" action="{{ url('/pet/'. $pet->id) }}">
+                        <a href="{{ url('/pet/'. $pet->id ) }}" class="btn btn-outline-success">Mostrar</a>
+                        @csrf
+                
+                        <a href="{{ url('/pet/'. $pet->id . '/edit') }}" class="btn btn-outline-info">Editar</a>
+                        {{ method_field('DELETE') }}
+                        <input type="submit" value="Eliminar" onclick="return confirm('Desea eliminar el registro?')" class="btn btn-outline-danger">
+                        </form>
+                    </td>
+                </tr>
+                
+                @endforeach
+                
+                    </tr>
+                    
+                </tbody>
+            </table>
+            
+            </div>
+        </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha2/dist/js/bootstrap.bundle.min.js" integrity="sha384-qKXV1j0HvMUeCBQ+QVp7JcfGl760yU08IQ+GpUo5hlbpg51QRiuqHAJz8+BrxE/N" crossorigin="anonymous"></script>
+    </body>
+</html>
+
+<style>
+    table{
+        margin: 100px;
+        border: 3px solid #7877e6;
+        background-color: #F0FFFF;
+        
+    /* centrar vertical y horizontalmente */
+    position: absolute;
+    top: 20%;
+    left: -12%;
+    }
+    .container-fluid {
+    width: 800px;
+
+    /* centrar vertical y horizontalmente */
+    position: absolute;
+    top: 20%;
+    left: 20%;
+    
+    }
+
+
+</style>
+<style>
+    tr.mi-clase{
+        border-bottom: 2px solid #7877e6;
+        
+    }
+</style>
+
+
+---------------------------------------------------------------------------------------
+views-show.blade.php
+<!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Document</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-aFq/bzH65dt+w6FI2ooMVUpc+21e0SRygnTpmBvdBgSdnuTN7QbdgL+OapgHtvPp" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
+        <nav class="navbar bg-dark" data-bs-theme="dark">
+
+        <div class="container">
+            <a class="navbar-brand" href="{{URL::to('pet')}}">{{ __('Pets') }}</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasDarkNavbar" aria-controls="offcanvasDarkNavbar" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="offcanvas offcanvas-end text-bg-dark" tabindex="-1" id="offcanvasDarkNavbar" aria-labelledby="offcanvasDarkNavbarLabel">
+            <div class="offcanvas-header">
+                <h5 class="offcanvas-title" id="offcanvasDarkNavbarLabel">Opciones</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body">
+                <ul class="navbar-nav justify-content-end flex-grow-1 pe-3">
+                <li class="nav-item">
+                <a class="btn btn-info" href="{{URL::to('pet')}}">{{ __('Pets') }}</a>
+                </li><br/>
+                <li class="nav-item">
+                <a style="float:justify" href="{{ url('pet/create') }}" class="btn btn-warning">Nuevo Registro</a>
+                </li><br/>
+                <li class="nav-item">
+                <a style="float:justify" href="{{ url('owner/create') }}" class="btn btn-info">Nuevo Propietario</a>
+                </li>
+    
+            </div>
+            </div>
+        </div>
+        </nav>
+        <br/>
+    </head>
+    
+    <body>
+
+    <div class="container-fluid text-center margin: 100px"  >
+    <div class="p-3 bg-info bg-opacity-10 border border-info border-start-0 rounded-end" >
+        <h3 style="color:#008B8B"> Datos de la mascota {{$pet->name}}</h3>
+    </div>
+    <br/>
+    <table class=" table " style=" border: 1px solid #7877e6; text-align:center"">
+                <thead >
+                <tr class = "mi-clase">
+                <h4>Detalles Mascota</h4><br/><br/><br/>
+                <td ><h6># {{ $pet->id }}</h6></td><br/></tr>
+                <tr><td><h6>Nombre: {{$pet->name}}</h6></td><br/></tr>
+                <tr><td><h6>Edad: {{$pet->age}}</h6></td></tr>
+                <tr><td><h6>Peso: {{$pet->weight_kg}}</h6></td></tr>
+                <tr><td><h6>Propietario: {{$pet->owner->full_name }}</h6></td></tr>
+    </div>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha2/dist/js/bootstrap.bundle.min.js" integrity="sha384-qKXV1j0HvMUeCBQ+QVp7JcfGl760yU08IQ+GpUo5hlbpg51QRiuqHAJz8+BrxE/N" crossorigin="anonymous"></script>
+    </body>
+</html>
+
+<style>
+    table{
+        margin: 80px;
+        border: 1px solid #7877e6;
+        background-color: #87CEFA;
+        
+    /* centrar vertical y horizontalmente */
+    position: absolute;
+    top: 20%;
+    left: -12%;
+    }
+    .container-fluid {
+    width: 700px;
+
+    /* centrar vertical y horizontalmente */
+    position: absolute;
+    top: 20%;
+    left: 20%;
+    
+    }
+
+
+</style>
+<style>
+    tr.mi-clase{
+        border-bottom: 1px solid #7877e6;
+        
+    }
+</style>
+
+---------------------------------------------------------------------------------------
+reoutes-web.php
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PetController;
+use App\Http\Controllers\OwnerController;
+
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register web routes for your application. These
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "web" middleware group. Make something great!
+|
+*/
+
+Route::get('/', function () {
+    return view('welcome');
+});
+
+/*
+Route::get('/pet', function(){
+    return view('pet.index');
+});
+*/
+
+// Route::get('pet/create', [PetController::class, 'create']);
+// accedemos a la clase PetController, y al metodo create
+
+Route::resource('pet', PetController::class);
+Route::resource('owner', OwnerController::class);
+
+
+----------------------------------------------------------------------------------
+views-layouts-app.blade.php
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
+
+</head>
+<body>
+    <nav class="navbar navbar-expand-md navbar-light bg-white">
+        <a class="nav-link" href="{{URL::to('pet')}}">{{ __('Pets') }}</a>
+
+    </nav>
+    <div class="container">
+        @yield('content')
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe" crossorigin="anonymous"></script>
+
+    
+</body>
+</html>
